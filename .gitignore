@@ -1,0 +1,57 @@
+# Ignore build and publish outputs
+bin/
+obj/
+
+# User-specific files
+.vscode/
+.idea/
+*.user
+*.suo
+*.vsp*
+*.psess
+
+# Logs and Debugging
+*.log
+*.tlog/
+
+# Visual Studio specific files
+*.vs/
+.vscode/
+
+# Rider and JetBrains files
+*.sln.iml
+
+# NuGet and dependencies
+packages/
+*.nupkg
+project.lock.json
+
+# Environment and configuration
+appsettings*.json
+secrets.json
+.env
+
+# Ignore credential file
+google-credentials.json
+
+# Temporary files
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store
+
+# Resharper and Rider
+*.DotSettings.user
+
+# Coverage and test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Docker related
+**/Dockerfile
+**/docker-compose*
+
+# Azure related
+.azure/*
