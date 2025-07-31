@@ -27,7 +27,6 @@ packages/
 project.lock.json
 
 # Environment and configuration
-appsettings*.json
 secrets.json
 .env
 
