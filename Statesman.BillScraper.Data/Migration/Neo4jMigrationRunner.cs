@@ -1,18 +1,18 @@
-﻿using Neo4jClient;
+﻿using Neo4j.Driver;
 using Microsoft.Extensions.Logging;
 
 namespace Statesman.BillScraper.Data.Migration;
 
 public class Neo4jMigrationRunner : IMigrationRunner
 {
-    private readonly IGraphClient _client;
+    private readonly IDriver _driver;
     private readonly ILogger<Neo4jMigrationRunner> _logger;
 
     public Neo4jMigrationRunner(
-        IGraphClient client,
+        IDriver driver,
         ILogger<Neo4jMigrationRunner> logger)
     {
-        _client = client;
+        _driver = driver;
         _logger = logger;
     }
 
@@ -24,6 +24,7 @@ public class Neo4jMigrationRunner : IMigrationRunner
 
             var migrations = Neo4jMigrations.GetMigrations();
             var appliedMigrations = await GetAppliedMigrationsAsync();
+
             foreach (var migration in migrations.OrderBy(m => m.Version))
             {
                 if (!appliedMigrations.Contains(migration.Version))
@@ -47,59 +48,64 @@ public class Neo4jMigrationRunner : IMigrationRunner
 
     private async Task EnsureMigrationTrackingExistsAsync()
     {
-        await _client.Cypher
-            .Create(@"
-                CONSTRAINT migration_version_unique IF NOT EXISTS 
-                FOR (m:Migration) REQUIRE m.Version IS UNIQUE")
-            .ExecuteWithoutResultsAsync();
+        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+
+        await session.ExecuteWriteAsync(async tx =>
+        {
+            var query = @"
+                CREATE CONSTRAINT migration_version_unique IF NOT EXISTS 
+                FOR (m:Migration) REQUIRE m.Version IS UNIQUE";
+
+            await tx.RunAsync(query);
+        });
     }
 
     private async Task<HashSet<string>> GetAppliedMigrationsAsync()
     {
+        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
-        var result = await _client.Cypher
-            .Match("(m:Migration)")
-            .Return(m => m.As<Migration>().Version)
-            .ResultsAsync;
+        return await session.ExecuteReadAsync(async tx =>
+        {
+            var query = "MATCH (m:Migration) RETURN m.Version as version";
+            var cursor = await tx.RunAsync(query);
+            var records = await cursor.ToListAsync();
 
-        return result.ToHashSet();
+            return records.Select(r => r["version"].As<string>()).ToHashSet();
+        });
     }
 
     private async Task ApplyMigrationAsync(Migration migration)
     {
-        foreach (var statement in migration.UpStatements)
-        {
-            switch (statement.QueryType)
-            {
-                case Neo4jQueryType.Create:
-                    await _client.Cypher
-                        .Create(statement.Statement)
-                        .ExecuteWithoutResultsAsync();
-                    break;
+        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
-                case Neo4jQueryType.Drop:
-                    await _client.Cypher
-                        .Drop(statement.Statement)
-                        .ExecuteWithoutResultsAsync();
-                    break;
-                
-                default:
-                    break;
+        await session.ExecuteWriteAsync(async tx =>
+        {
+            foreach (var statement in migration.UpStatements)
+            {
+                await tx.RunAsync(statement);
             }
-        }
+        });
     }
 
     private async Task RecordMigrationAsync(Migration migration)
     {
-        await _client.Cypher
-            .Create("(m:Migration)")
-            .Set("m = $migration")
-            .WithParam("migration", new
+        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+
+        await session.ExecuteWriteAsync(async tx =>
+        {
+            var query = @"
+                CREATE (m:Migration {
+                    Version: $version,
+                    Description: $description,
+                    AppliedAt: $appliedAt
+                })";
+
+            await tx.RunAsync(query, new
             {
-                migration.Version,
-                migration.Description,
-                AppliedAt = DateTime.UtcNow
-            })
-            .ExecuteWithoutResultsAsync();
+                version = migration.Version,
+                description = migration.Description,
+                appliedAt = DateTime.UtcNow
+            });
+        });
     }
 }

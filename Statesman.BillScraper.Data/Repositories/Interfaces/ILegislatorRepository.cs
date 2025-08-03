@@ -6,6 +6,6 @@ public interface ILegislatorRepository
 {
     Task<Legislator?> CreateLegislatorAsync(Legislator legislator);
     Task<Legislator?> GetLegislatorByIdAsync(int id);
-    Task<Legislator?> GetLegislatorByNodeIdAsync(string nodeId);
+    Task<Legislator?> GetLegislatorByNodeIdAsync(long nodeId);
     Task<IEnumerable<Bill>> GetSponsoredBillsAsync(int legislatorId);
 }

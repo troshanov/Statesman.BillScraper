@@ -45,6 +45,14 @@ public class Worker : BackgroundService
         {
             var bill = _mapper.Map<Bill>(billDto);
 
+            // Check if bill already exists in database
+            var existingBill = await _billRepository.GetBillByIdAsync(bill.Id);
+            if (existingBill != null)
+            {
+                _logger.LogInformation("Bill with Id {Id} already exists, skipping processing", bill.Id);
+                continue;
+            }
+
             var pdfBytes = await GetBillPdf(billDto.PdfId);
             var extractionResult = PdfImageExtractor.ExtractImages(pdfBytes);
 

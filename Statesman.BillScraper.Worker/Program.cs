@@ -1,4 +1,3 @@
-using Neo4jClient;
 using Statesman.BillScraper;
 using Statesman.BillScraper.Data;
 using Statesman.BillScraper.Mappings;
@@ -19,12 +18,12 @@ Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialP
 
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 
-var neo4jClient = await builder.Services.AddDataLayer(builder.Configuration, true);
+await builder.Services.AddDataLayer(builder.Configuration, true);
 
 builder.Services.AddSingleton<IGoogleCloudVisionService, GoogleCloudVisionService>();
 
 var host = builder.Build();
 
-await host.RunNeo4jMigrations(neo4jClient);
+await host.RunNeo4jMigrations();
 
 host.Run();
