@@ -1,6 +1,6 @@
 ﻿namespace Statesman.BillScraper.Data.Models;
 
-public class Legislator
+public class LegislatorEntity
 {
     // Domain ID
     public int Id { get; set; }
@@ -13,5 +13,5 @@ public class Legislator
     public string LastName { get; set; } = null!;
 
     // Navigation property
-    public ICollection<Bill> SponsoredBills { get; set; } = new List<Bill>();
+    public ICollection<BillEntity> SponsoredBills { get; set; } = new List<BillEntity>();
 }

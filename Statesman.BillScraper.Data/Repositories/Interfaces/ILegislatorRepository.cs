@@ -4,8 +4,8 @@ namespace Statesman.BillScraper.Data.Repositories.Interfaces;
 
 public interface ILegislatorRepository
 {
-    Task<Legislator?> CreateLegislatorAsync(Legislator legislator);
-    Task<Legislator?> GetLegislatorByIdAsync(int id);
-    Task<Legislator?> GetLegislatorByNodeIdAsync(long nodeId);
-    Task<IEnumerable<Bill>> GetSponsoredBillsAsync(int legislatorId);
+    Task<LegislatorEntity?> CreateLegislatorAsync(LegislatorEntity legislator);
+    Task<LegislatorEntity?> GetLegislatorByIdAsync(int id);
+    Task<LegislatorEntity?> GetLegislatorByNodeIdAsync(long nodeId);
+    Task<IEnumerable<BillEntity>> GetSponsoredBillsAsync(int legislatorId);
 }

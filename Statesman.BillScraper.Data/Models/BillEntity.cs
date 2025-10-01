@@ -1,6 +1,6 @@
 ﻿namespace Statesman.BillScraper.Data.Models;
 
-public class Bill : Neo4jEntity
+public class BillEntity : Neo4jEntity
 {
     public string Title { get; set; } = null!;
     public string Sign { get; set; } = null!;
@@ -10,6 +10,12 @@ public class Bill : Neo4jEntity
     public DateTime? ParsedAt { get; set; }
 
     // Navigation property
-    public ICollection<Legislator> Sponsors { get; set; } = new List<Legislator>();
-    public ICollection<BillElement> BillElements { get; set; } = new List<BillElement>();
+    public ICollection<LegislatorEntity> Sponsors { get; set; } = new List<LegislatorEntity>();
+    public ICollection<BillElementEntity> BillElements { get; set; } = new List<BillElementEntity>();
+
+    public void ParseBill() 
+    {
+        IsParsed = true;
+        ParsedAt = DateTime.UtcNow;
+    }
 }

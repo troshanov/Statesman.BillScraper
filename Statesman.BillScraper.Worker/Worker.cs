@@ -43,7 +43,7 @@ public class Worker : BackgroundService
 
         foreach (var billDto in billDtos)
         {
-            var bill = _mapper.Map<Bill>(billDto);
+            var bill = _mapper.Map<BillEntity>(billDto);
 
             // Check if bill already exists in database
             var existingBill = await _billRepository.GetBillByIdAsync(bill.Id);
@@ -70,7 +70,7 @@ public class Worker : BackgroundService
             {
                 foreach (var legislatorDto in billDto.Legislators)
                 {
-                    var legislator = _mapper.Map<Legislator>(legislatorDto);
+                    var legislator = _mapper.Map<LegislatorEntity>(legislatorDto);
 
                     var savedLegislator = await _legislatorRepository.GetLegislatorByIdAsync(legislator.Id);
 

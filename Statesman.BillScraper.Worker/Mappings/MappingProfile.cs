@@ -8,7 +8,7 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
-        CreateMap<BillDto, Bill>()
+        CreateMap<BillDto, BillEntity>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.Sign, opt => opt.MapFrom(src => src.PdfId))
             .ForMember(dest => dest.Date, opt => opt.MapFrom(src => DateTime.Parse(src.Date)))
@@ -19,7 +19,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.NodeId, opt => opt.Ignore())
             .ForMember(dest => dest.Sponsors, opt => opt.Ignore());
 
-        CreateMap<LegislatorDto, Legislator>()
+        CreateMap<LegislatorDto, LegislatorEntity>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.MiddleName, opt => opt.MapFrom(src => src.MiddleName))

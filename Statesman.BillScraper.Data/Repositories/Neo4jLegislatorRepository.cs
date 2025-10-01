@@ -13,7 +13,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
         _driver = driver;
     }
 
-    public async Task<Legislator?> CreateLegislatorAsync(Legislator legislator)
+    public async Task<LegislatorEntity?> CreateLegislatorAsync(LegislatorEntity legislator)
     {
         try
         {
@@ -42,7 +42,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
                 var node = record["l"].As<INode>();
                 var nodeId = record["nodeId"].As<long>();
 
-                return new Legislator
+                return new LegislatorEntity
                 {
                     Id = node.Properties["Id"].As<int>(),
                     FirstName = node.Properties["FirstName"].As<string>(),
@@ -61,7 +61,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
         }
     }
 
-    public async Task<Legislator?> GetLegislatorByIdAsync(int id)
+    public async Task<LegislatorEntity?> GetLegislatorByIdAsync(int id)
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -81,7 +81,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
             var node = record["l"].As<INode>();
             var nodeId = record["nodeId"].As<long>();
 
-            return new Legislator
+            return new LegislatorEntity
             {
                 Id = node.Properties["Id"].As<int>(),
                 FirstName = node.Properties["FirstName"].As<string>(),
@@ -92,7 +92,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
         });
     }
 
-    public async Task<Legislator?> GetLegislatorByNodeIdAsync(long nodeId)
+    public async Task<LegislatorEntity?> GetLegislatorByNodeIdAsync(long nodeId)
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -112,7 +112,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
             var record = records.First();
             var node = record["l"].As<INode>();
 
-            return new Legislator
+            return new LegislatorEntity
             {
                 Id = node.Properties["Id"].As<int>(),
                 FirstName = node.Properties["FirstName"].As<string>(),
@@ -123,7 +123,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
         });
     }
 
-    public async Task<IEnumerable<Bill>> GetSponsoredBillsAsync(int legislatorId)
+    public async Task<IEnumerable<BillEntity>> GetSponsoredBillsAsync(int legislatorId)
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -141,7 +141,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
                 var node = record["b"].As<INode>();
                 var nodeId = record["nodeId"].As<long>();
 
-                return new Bill
+                return new BillEntity
                 {
                     Id = node.Properties["Id"].As<int>(),
                     Title = node.Properties["Title"].As<string>(),

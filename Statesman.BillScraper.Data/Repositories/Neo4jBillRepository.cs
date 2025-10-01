@@ -13,7 +13,7 @@ public class Neo4jBillRepository : IBillRepository
         _driver = driver;
     }
 
-    public async Task<Bill?> CreateBillAsync(Bill bill)
+    public async Task<BillEntity?> CreateBillAsync(BillEntity bill)
     {
         try
         {
@@ -62,7 +62,7 @@ public class Neo4jBillRepository : IBillRepository
         }
     }
 
-    public async Task<Bill?> GetBillByIdAsync(int id)
+    public async Task<BillEntity?> GetBillByIdAsync(int id)
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -86,7 +86,7 @@ public class Neo4jBillRepository : IBillRepository
         });
     }
 
-    public async Task<Bill?> GetBillByNodeIdAsync(long nodeId)
+    public async Task<BillEntity?> GetBillByNodeIdAsync(long nodeId)
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -124,7 +124,7 @@ public class Neo4jBillRepository : IBillRepository
         });
     }
 
-    public async Task<IEnumerable<Legislator>> GetBillSponsorsAsync(int billId)
+    public async Task<IEnumerable<LegislatorEntity>> GetBillSponsorsAsync(int billId)
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -142,7 +142,7 @@ public class Neo4jBillRepository : IBillRepository
                 var node = record["l"].As<INode>();
                 var nodeId = record["nodeId"].As<long>();
 
-                return new Legislator
+                return new LegislatorEntity
                 {
                     Id = node.Properties["Id"].As<int>(),
                     FirstName = node.Properties["FirstName"].As<string>(),
@@ -154,7 +154,7 @@ public class Neo4jBillRepository : IBillRepository
         });
     }
 
-    public async Task<IEnumerable<Bill>> GetUnparsedBillsAsync()
+    public async Task<IEnumerable<BillEntity>> GetUnparsedBillsAsync()
     {
         await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
 
@@ -177,9 +177,9 @@ public class Neo4jBillRepository : IBillRepository
         });
     }
 
-    private Bill MapNodeToBill(INode node, long nodeId)
+    private BillEntity MapNodeToBill(INode node, long nodeId)
     {
-        return new Bill
+        return new BillEntity
         {
             Id = node.Properties["Id"].As<int>(),
             Title = node.Properties["Title"].As<string>(),
@@ -191,5 +191,117 @@ public class Neo4jBillRepository : IBillRepository
             UpdatedAt = node.Properties["UpdatedAt"].As<DateTime>(),
             NodeId = nodeId
         };
+    }
+
+    // BillElement persistence methods
+    public async Task<ArticleEntity?> CreateArticleAsync(ArticleEntity article, int billId, long? parentElementNodeId = null)
+    {
+        return await CreateBillElementAsync<ArticleEntity>(article, "Article", billId, parentElementNodeId);
+    }
+
+    public async Task<ChapterEntity?> CreateChapterAsync(ChapterEntity chapter, int billId, long? parentElementNodeId = null)
+    {
+        return await CreateBillElementAsync<ChapterEntity>(chapter, "Chapter", billId, parentElementNodeId);
+    }
+
+    public async Task<SectionEntity?> CreateSectionAsync(SectionEntity section, int billId, long? parentElementNodeId = null)
+    {
+        return await CreateBillElementAsync<SectionEntity>(section, "Section", billId, parentElementNodeId);
+    }
+
+    public async Task<ParagraphEntity?> CreateParagraphAsync(ParagraphEntity paragraph, int billId, long? parentElementNodeId = null)
+    {
+        return await CreateBillElementAsync<ParagraphEntity>(paragraph, "Paragraph", billId, parentElementNodeId);
+    }
+
+    public async Task<LetterEntity?> CreateLetterAsync(LetterEntity letter, int billId, long? parentElementNodeId = null)
+    {
+        return await CreateBillElementAsync<LetterEntity>(letter, "Letter", billId, parentElementNodeId);
+    }
+
+    public async Task<PointEntity?> CreatePointAsync(PointEntity point, int billId, long? parentElementNodeId = null)
+    {
+        return await CreateBillElementAsync<PointEntity>(point, "Point", billId, parentElementNodeId);
+    }
+
+    private async Task<T?> CreateBillElementAsync<T>(T element, string label, int billId, long? parentElementNodeId = null)
+        where T : BillElementEntity
+    {
+        try
+        {
+            await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+
+            var result = await session.ExecuteWriteAsync(async tx =>
+            {
+                // Create the element node
+                var createQuery = $@"
+                    CREATE (e:{label}:BillElement {{
+                        Id: $id,
+                        Text: $text,
+                        Marker: $marker,
+                        UpdatedAt: $updatedAt
+                    }})
+                    RETURN e, ID(e) as nodeId";
+
+                var cursor = await tx.RunAsync(createQuery, new
+                {
+                    id = element.Id,
+                    text = element.Text,
+                    marker = element.Marker,
+                    updatedAt = element.UpdatedAt
+                });
+
+                var record = await cursor.SingleAsync();
+                var node = record["e"].As<INode>();
+                var nodeId = record["nodeId"].As<long>();
+
+                // Create relationship to Bill
+                var billRelQuery = @"
+                    MATCH (b:Bill {Id: $billId})
+                    MATCH (e:BillElement)
+                    WHERE ID(e) = $elementNodeId
+                    CREATE (b)-[:HAS_ELEMENT]->(e)";
+
+                await tx.RunAsync(billRelQuery, new { billId, elementNodeId = nodeId });
+
+                // Create relationship to parent element if provided
+                if (parentElementNodeId.HasValue)
+                {
+                    var parentRelQuery = @"
+                        MATCH (parent:BillElement)
+                        WHERE ID(parent) = $parentNodeId
+                        MATCH (child:BillElement)
+                        WHERE ID(child) = $childNodeId
+                        CREATE (parent)-[:HAS_CHILD]->(child)";
+
+                    await tx.RunAsync(parentRelQuery, new
+                    {
+                        parentNodeId = parentElementNodeId.Value,
+                        childNodeId = nodeId
+                    });
+                }
+
+                return MapNodeToBillElement<T>(node, nodeId, element.Text, element.Marker);
+            });
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating {label}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private T MapNodeToBillElement<T>(INode node, long nodeId, string text, string marker)
+        where T : BillElementEntity
+    {
+        var element = (T)Activator.CreateInstance(typeof(T), text, marker)!;
+        element.Id = node.Properties["Id"].As<int>();
+        element.Text = node.Properties["Text"].As<string>();
+        element.Marker = node.Properties["Marker"].As<string>();
+        element.UpdatedAt = node.Properties["UpdatedAt"].As<DateTime>();
+        element.NodeId = nodeId;
+        return element;
     }
 }
