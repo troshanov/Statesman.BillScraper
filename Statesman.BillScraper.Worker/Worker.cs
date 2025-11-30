@@ -64,6 +64,7 @@ public class Worker : BackgroundService
             }
 
             bill.RawText = billText.ToString();
+            bill.PdfBytes = pdfBytes;
             var savedBill = await _billRepository.CreateBillAsync(bill);
 
             if (savedBill != null)

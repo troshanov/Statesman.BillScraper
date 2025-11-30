@@ -27,6 +27,7 @@ public class Neo4jBillRepository : IBillRepository
                         Title: $title,
                         Sign: $sign,
                         RawText: $rawText,
+                        PdfBytes: $pdfBytes,
                         Date: $date,
                         IsParsed: $isParsed,
                         ParsedAt: $parsedAt,
@@ -40,6 +41,7 @@ public class Neo4jBillRepository : IBillRepository
                     title = bill.Title,
                     sign = bill.Sign,
                     rawText = bill.RawText,
+                    pdfBytes = bill.PdfBytes,
                     date = bill.Date,
                     isParsed = bill.IsParsed,
                     parsedAt = bill.ParsedAt,
@@ -172,7 +174,13 @@ public class Neo4jBillRepository : IBillRepository
                 var node = record["b"].As<INode>();
                 var nodeId = record["nodeId"].As<long>();
 
-                return MapNodeToBill(node, nodeId);
+                return new BillEntity
+                {
+                    Id = node.Properties["Id"].As<int>(),
+                    Title = node.Properties["Title"].As<string>(),
+                    Date = node.Properties["Date"].As<DateTime>(),
+                    NodeId = nodeId
+                };
             }).ToList();
         });
     }
@@ -194,35 +202,23 @@ public class Neo4jBillRepository : IBillRepository
     }
 
     // BillElement persistence methods
-    public async Task<ArticleEntity?> CreateArticleAsync(ArticleEntity article, int billId, long? parentElementNodeId = null)
-    {
-        return await CreateBillElementAsync<ArticleEntity>(article, "Article", billId, parentElementNodeId);
-    }
+    public async Task<ArticleEntity?> CreateArticleAsync(ArticleEntity article, int billId, long? parentElementNodeId = null) 
+        => await CreateBillElementAsync(article, "Article", billId, parentElementNodeId);
 
-    public async Task<ChapterEntity?> CreateChapterAsync(ChapterEntity chapter, int billId, long? parentElementNodeId = null)
-    {
-        return await CreateBillElementAsync<ChapterEntity>(chapter, "Chapter", billId, parentElementNodeId);
-    }
+    public async Task<ChapterEntity?> CreateChapterAsync(ChapterEntity chapter, int billId, long? parentElementNodeId = null) 
+        => await CreateBillElementAsync(chapter, "Chapter", billId, parentElementNodeId);
 
-    public async Task<SectionEntity?> CreateSectionAsync(SectionEntity section, int billId, long? parentElementNodeId = null)
-    {
-        return await CreateBillElementAsync<SectionEntity>(section, "Section", billId, parentElementNodeId);
-    }
+    public async Task<SectionEntity?> CreateSectionAsync(SectionEntity section, int billId, long? parentElementNodeId = null) 
+        => await CreateBillElementAsync(section, "Section", billId, parentElementNodeId);
 
-    public async Task<ParagraphEntity?> CreateParagraphAsync(ParagraphEntity paragraph, int billId, long? parentElementNodeId = null)
-    {
-        return await CreateBillElementAsync<ParagraphEntity>(paragraph, "Paragraph", billId, parentElementNodeId);
-    }
+    public async Task<ParagraphEntity?> CreateParagraphAsync(ParagraphEntity paragraph, int billId, long? parentElementNodeId = null) 
+        => await CreateBillElementAsync(paragraph, "Paragraph", billId, parentElementNodeId);
 
-    public async Task<LetterEntity?> CreateLetterAsync(LetterEntity letter, int billId, long? parentElementNodeId = null)
-    {
-        return await CreateBillElementAsync<LetterEntity>(letter, "Letter", billId, parentElementNodeId);
-    }
+    public async Task<LetterEntity?> CreateLetterAsync(LetterEntity letter, int billId, long? parentElementNodeId = null) 
+        => await CreateBillElementAsync(letter, "Letter", billId, parentElementNodeId);
 
-    public async Task<PointEntity?> CreatePointAsync(PointEntity point, int billId, long? parentElementNodeId = null)
-    {
-        return await CreateBillElementAsync<PointEntity>(point, "Point", billId, parentElementNodeId);
-    }
+    public async Task<PointEntity?> CreatePointAsync(PointEntity point, int billId, long? parentElementNodeId = null) 
+        => await CreateBillElementAsync(point, "Point", billId, parentElementNodeId);
 
     private async Task<T?> CreateBillElementAsync<T>(T element, string label, int billId, long? parentElementNodeId = null)
         where T : BillElementEntity
