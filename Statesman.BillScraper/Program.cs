@@ -1,26 +1,20 @@
 using Statesman.BillScraper;
 using Statesman.BillScraper.Data;
 using Statesman.BillScraper.Mappings;
-using Statesman.BillScraper.Utilities.ImageScanner;
+using Statesman.BillScraper.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddHostedService<Worker>();
 
 builder.Services.AddHttpClient("parliamentClient", client =>
 {
-    client.BaseAddress = new Uri("https://www.parliament.bg");
+    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Statesman:ParliamentBaseUrl")!);
 });
 
-var googleCredentials = builder.Configuration["Paths:GoogleCredentials"];
-
-string credentialPath = Path.Combine(AppContext.BaseDirectory, googleCredentials!);
-Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialPath);
-
 builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddSingleton<BillClientService>();
 
 await builder.Services.AddDataLayer(builder.Configuration, true);
-
-builder.Services.AddSingleton<IGoogleCloudVisionService, GoogleCloudVisionService>();
 
 var host = builder.Build();
 

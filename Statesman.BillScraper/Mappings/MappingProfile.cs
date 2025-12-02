@@ -11,11 +11,11 @@ public class MappingProfile : Profile
         CreateMap<BillDto, BillEntity>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.Sign, opt => opt.MapFrom(src => src.PdfId))
-            .ForMember(dest => dest.Date, opt => opt.MapFrom(src => DateTime.Parse(src.Date)))
+            .ForMember(dest => dest.Date, opt => opt.MapFrom(src => src.Date))
             .ForMember(dest => dest.IsParsed, opt => opt.MapFrom(src => false))
             .ForMember(dest => dest.ParsedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.RawText, opt => opt.Ignore())
+            .ForMember(dest => dest.PdfUrl, opt => opt.Ignore())
             .ForMember(dest => dest.NodeId, opt => opt.Ignore())
             .ForMember(dest => dest.Sponsors, opt => opt.Ignore());
 

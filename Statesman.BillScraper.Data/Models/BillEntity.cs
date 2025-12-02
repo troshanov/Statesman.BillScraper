@@ -4,8 +4,7 @@ public class BillEntity : Neo4jEntity
 {
     public string Title { get; set; } = null!;
     public string Sign { get; set; } = null!;
-    public string RawText { get; set; } = null!;
-    public byte[] PdfBytes { get; set; } = null!;
+    public string PdfUrl { get; set; } = null!;
     public DateTime Date { get; set; }
     public bool IsParsed { get; set; } = false;
     public DateTime? ParsedAt { get; set; }

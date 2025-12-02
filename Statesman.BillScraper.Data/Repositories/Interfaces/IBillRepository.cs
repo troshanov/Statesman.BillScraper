@@ -4,12 +4,13 @@ namespace Statesman.BillScraper.Data.Repositories.Interfaces;
 public interface IBillRepository
 {
     Task<BillEntity?> CreateBillAsync(BillEntity bill);
+    Task<BillEntity?> CreateBillWithSponsorsAsync(BillEntity bill, IEnumerable<LegislatorEntity> legislators);
     Task<BillEntity?> GetBillByIdAsync(int id);
-    Task<BillEntity?> GetBillByNodeIdAsync(long nodeId);
     Task AddSponsorToBillAsync(int billId, int legislatorId);
     Task<IEnumerable<LegislatorEntity>> GetBillSponsorsAsync(int billId);
     Task<IEnumerable<BillEntity>> GetUnparsedBillsAsync();
-    
+    Task<DateTime?> GetLatestBillDateAsync();
+
     // BillElement persistence methods
     Task<ArticleEntity?> CreateArticleAsync(ArticleEntity article, int billId, long? parentElementNodeId = null);
     Task<ChapterEntity?> CreateChapterAsync(ChapterEntity chapter, int billId, long? parentElementNodeId = null);

@@ -1,4 +1,5 @@
-﻿using Neo4j.Driver;
+﻿using Microsoft.Extensions.Configuration;
+using Neo4j.Driver;
 using Statesman.BillScraper.Data.Models;
 using Statesman.BillScraper.Data.Repositories.Interfaces;
 
@@ -7,17 +8,18 @@ namespace Statesman.BillScraper.Data.Repositories;
 public class Neo4jBillRepository : IBillRepository
 {
     private readonly IDriver _driver;
-
-    public Neo4jBillRepository(IDriver driver)
+    private readonly string _database;
+    public Neo4jBillRepository(IDriver driver, IConfiguration configuration)
     {
         _driver = driver;
+        _database = configuration.GetSection("Neo4j")["Database"]!;
     }
 
     public async Task<BillEntity?> CreateBillAsync(BillEntity bill)
     {
         try
         {
-            await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+            await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
             var result = await session.ExecuteWriteAsync(async tx =>
             {
@@ -26,8 +28,7 @@ public class Neo4jBillRepository : IBillRepository
                         Id: $id,
                         Title: $title,
                         Sign: $sign,
-                        RawText: $rawText,
-                        PdfBytes: $pdfBytes,
+                        PdfUrl: $pdfUrl,
                         Date: $date,
                         IsParsed: $isParsed,
                         ParsedAt: $parsedAt,
@@ -40,8 +41,7 @@ public class Neo4jBillRepository : IBillRepository
                     id = bill.Id,
                     title = bill.Title,
                     sign = bill.Sign,
-                    rawText = bill.RawText,
-                    pdfBytes = bill.PdfBytes,
+                    pdfUrl = bill.PdfUrl,
                     date = bill.Date,
                     isParsed = bill.IsParsed,
                     parsedAt = bill.ParsedAt,
@@ -64,9 +64,91 @@ public class Neo4jBillRepository : IBillRepository
         }
     }
 
+    public async Task<BillEntity?> CreateBillWithSponsorsAsync(BillEntity bill, IEnumerable<LegislatorEntity> legislators)
+    {
+        try
+        {
+            await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
+
+            var result = await session.ExecuteWriteAsync(async tx =>
+            {
+                // 1. Create the bill
+                var billQuery = @"
+                    CREATE (b:Bill {
+                        Id: $id,
+                        Title: $title,
+                        Sign: $sign,
+                        PdfUrl: $pdfUrl,
+                        Date: $date,
+                        IsParsed: $isParsed,
+                        ParsedAt: $parsedAt,
+                        UpdatedAt: $updatedAt
+                    })
+                    RETURN b, ID(b) as nodeId";
+
+                var billCursor = await tx.RunAsync(billQuery, new
+                {
+                    id = bill.Id,
+                    title = bill.Title,
+                    sign = bill.Sign,
+                    pdfUrl = bill.PdfUrl,
+                    date = bill.Date,
+                    isParsed = bill.IsParsed,
+                    parsedAt = bill.ParsedAt,
+                    updatedAt = bill.UpdatedAt
+                });
+
+                var billRecord = await billCursor.SingleAsync();
+                var billNode = billRecord["b"].As<INode>();
+                var billNodeId = billRecord["nodeId"].As<long>();
+
+                // 2. Process each legislator and create sponsor relationship
+                foreach (var legislator in legislators)
+                {
+                    // MERGE legislator (create if doesn't exist, or match if it does)
+                    var legislatorQuery = @"
+                        MERGE (l:Legislator {Id: $id})
+                        ON CREATE SET 
+                            l.FirstName = $firstName,
+                            l.MiddleName = $middleName,
+                            l.LastName = $lastName
+                        RETURN l, ID(l) as nodeId";
+
+                    await tx.RunAsync(legislatorQuery, new
+                    {
+                        id = legislator.Id,
+                        firstName = legislator.FirstName,
+                        middleName = legislator.MiddleName,
+                        lastName = legislator.LastName
+                    });
+
+                    // 3. Create sponsor relationship
+                    var sponsorQuery = @"
+                        MATCH (b:Bill {Id: $billId}), (l:Legislator {Id: $legislatorId})
+                        CREATE (l)-[:SPONSORS]->(b)";
+
+                    await tx.RunAsync(sponsorQuery, new
+                    {
+                        billId = bill.Id,
+                        legislatorId = legislator.Id
+                    });
+                }
+
+                return MapNodeToBill(billNode, billNodeId);
+            });
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating bill with sponsors: {ex.Message}");
+            return null;
+        }
+    }
+
     public async Task<BillEntity?> GetBillByIdAsync(int id)
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -88,33 +170,9 @@ public class Neo4jBillRepository : IBillRepository
         });
     }
 
-    public async Task<BillEntity?> GetBillByNodeIdAsync(long nodeId)
-    {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
-
-        return await session.ExecuteReadAsync(async tx =>
-        {
-            var query = @"
-                MATCH (b:Bill)
-                WHERE ID(b) = $nodeId
-                RETURN b, ID(b) as nodeId";
-
-            var cursor = await tx.RunAsync(query, new { nodeId });
-            var records = await cursor.ToListAsync();
-
-            if (!records.Any())
-                return null;
-
-            var record = records.First();
-            var node = record["b"].As<INode>();
-
-            return MapNodeToBill(node, nodeId);
-        });
-    }
-
     public async Task AddSponsorToBillAsync(int billId, int legislatorId)
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         await session.ExecuteWriteAsync(async tx =>
         {
@@ -128,7 +186,7 @@ public class Neo4jBillRepository : IBillRepository
 
     public async Task<IEnumerable<LegislatorEntity>> GetBillSponsorsAsync(int billId)
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -158,7 +216,7 @@ public class Neo4jBillRepository : IBillRepository
 
     public async Task<IEnumerable<BillEntity>> GetUnparsedBillsAsync()
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -185,6 +243,30 @@ public class Neo4jBillRepository : IBillRepository
         });
     }
 
+    public async Task<DateTime?> GetLatestBillDateAsync()
+    {
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
+
+        return await session.ExecuteReadAsync(async tx =>
+        {
+            var query = @"
+                MATCH (b:Bill)
+                RETURN MAX(b.Date) as latestDate";
+
+            var cursor = await tx.RunAsync(query);
+            var record = await cursor.SingleAsync();
+            
+            try
+            {
+                return record["latestDate"].As<DateTime?>();
+            }
+            catch
+            {
+                return null;
+            }
+        });
+    }
+
     private BillEntity MapNodeToBill(INode node, long nodeId)
     {
         return new BillEntity
@@ -192,7 +274,7 @@ public class Neo4jBillRepository : IBillRepository
             Id = node.Properties["Id"].As<int>(),
             Title = node.Properties["Title"].As<string>(),
             Sign = node.Properties["Sign"].As<string>(),
-            RawText = node.Properties["RawText"].As<string>(),
+            PdfUrl = node.Properties["PdfUrl"].As<string>(),
             Date = node.Properties["Date"].As<DateTime>(),
             IsParsed = node.Properties["IsParsed"].As<bool>(),
             ParsedAt = node.Properties.ContainsKey("ParsedAt") ? node.Properties["ParsedAt"].As<DateTime?>() : null,
@@ -225,7 +307,7 @@ public class Neo4jBillRepository : IBillRepository
     {
         try
         {
-            await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+            await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
             var result = await session.ExecuteWriteAsync(async tx =>
             {

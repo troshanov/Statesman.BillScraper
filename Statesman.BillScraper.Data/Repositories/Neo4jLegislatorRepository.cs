@@ -1,4 +1,5 @@
-﻿using Neo4j.Driver;
+﻿using Microsoft.Extensions.Configuration;
+using Neo4j.Driver;
 using Statesman.BillScraper.Data.Models;
 using Statesman.BillScraper.Data.Repositories.Interfaces;
 
@@ -7,17 +8,18 @@ namespace Statesman.BillScraper.Data.Repositories;
 public class Neo4jLegislatorRepository : ILegislatorRepository
 {
     private readonly IDriver _driver;
-
-    public Neo4jLegislatorRepository(IDriver driver)
+    private readonly string _database;
+    public Neo4jLegislatorRepository(IDriver driver, IConfiguration configuration)
     {
         _driver = driver;
+        _database = configuration.GetSection("Neo4j")["Database"]!;
     }
 
     public async Task<LegislatorEntity?> CreateLegislatorAsync(LegislatorEntity legislator)
     {
         try
         {
-            await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+            await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
             var result = await session.ExecuteWriteAsync(async tx =>
             {
@@ -63,7 +65,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
 
     public async Task<LegislatorEntity?> GetLegislatorByIdAsync(int id)
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -94,7 +96,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
 
     public async Task<LegislatorEntity?> GetLegislatorByNodeIdAsync(long nodeId)
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -125,7 +127,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
 
     public async Task<IEnumerable<BillEntity>> GetSponsoredBillsAsync(int legislatorId)
     {
-        await using var session = _driver.AsyncSession(s => s.WithDatabase("statesman"));
+        await using var session = _driver.AsyncSession(s => s.WithDatabase(_database));
 
         return await session.ExecuteReadAsync(async tx =>
         {
@@ -146,7 +148,7 @@ public class Neo4jLegislatorRepository : ILegislatorRepository
                     Id = node.Properties["Id"].As<int>(),
                     Title = node.Properties["Title"].As<string>(),
                     Sign = node.Properties["Sign"].As<string>(),
-                    RawText = node.Properties["RawText"].As<string>(),
+                    PdfUrl = node.Properties["PdfUrl"].As<string>(),
                     Date = node.Properties["Date"].As<DateTime>(),
                     IsParsed = node.Properties["IsParsed"].As<bool>(),
                     ParsedAt = node.Properties.ContainsKey("ParsedAt") ? node.Properties["ParsedAt"].As<DateTime?>() : null,
